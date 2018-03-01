@@ -5,5 +5,4 @@ Simulating agents traversing a field. Every path travelled will ease the road fo
 
 see here: https://en.wikipedia.org/wiki/Desire_path
 
-![Swirl](https://raw.githubusercontent.com/randompirate/swirlode/master/plot.png "Swirl")
-
+![Graph](https://raw.githubusercontent.com/randompirate/desirelines/master/plot.png "Graph")
