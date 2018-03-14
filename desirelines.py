@@ -4,8 +4,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import random as rng
 
-WIDTH = 4
-HEIGHT = 7
+rng.seed(1)
+
+WIDTH = 80
+HEIGHT = 110
 
 class DGraph(nx.Graph):
   """Desire graph."""
@@ -13,12 +15,14 @@ class DGraph(nx.Graph):
     super(DGraph, self).__init__()
     self.width = width
     self.height = height
+    self.node_count = width * height
     self.indexed_nodes = range(width*height)
     # Grid maps
     self.ind2grid = lambda ind : [ind%width, int(ind/width)]
     self.grid2ind = lambda i,j : int(i + j*width)
     # Add nodes
     self.add_nodes_from([(i,dict(coords=self.ind2grid(i), nodeweight=1)) for i in self.indexed_nodes])
+    self.total_visits = self.node_count * [0]
     # Add edges
     self.__init_add_edges()
     # Shortest path memoisation
@@ -49,16 +53,48 @@ class DGraph(nx.Graph):
     return super(DGraph, self).__setitem__(self.grid2ind(*key), item)
 
   def update_shortest_path(self):
-    self.shortest_path_list = nx.shortest_path(self, self.shortest_path_centre, weight = 'weight')
+    self.shortest_path_list = nx.shortest_path(self, source = None, target = self.grid2ind(*self.shortest_path_centre), weight = 'weight')
 
-  def release_agents(self, batch_count = 10):
-    #TODO
-    # Pick random paths to centre for batch_count agents
-    # Lower weights for all visited nodes
-    # Reset visited nodes
+  def perturb_initial_weights(self):
+    # perturbation to avoid initial manhatten-norm
+    for node_in, node_out in self.edges():
+      if node_in < node_out: #Directed graph G[a][b] = G[b][a]
+        w = 1 + .05*(1-2*rng.random())
+        G[node_in][node_out]['weight'] = w
+        # G[node_out][node_in]['weight'] = w
+
+
+  def release_agents(self, batch_count = 10, agent_list = None, weight_factor = .95):
+    if agent_list:
+      agent_starts = [self.grid2ind(*a) for a in agent_list]
+    else:
+      agent_starts = [self.grid2ind(rng.choice(range(self.width)), rng.choice(range(self.height)))
+                      for _ in range(batch_count)] # Todo: Make slightly uniform
+    # List shortest paths
+    s_paths = [self.shortest_path_list[start] for start in agent_starts]
+    # Add up visits per node
+    visits = self.node_count * [0]
+    for path in s_paths:
+      for node in path:
+        visits[node] += 1
+        self.total_visits[node] += 1
+
+    # Lower all weights according to current visits
+    for node_out, node_in in self.edges():
+      # Flatten
+      G[node_out][node_in]['weight'] *= weight_factor**(visits[node_out] + visits[node_in])
+      # Regrowth:
+      G[node_out][node_in]['weight'] += .001*rng.random()
     # Update shortest_path
+    self.update_shortest_path()
     return
 
+  def draw(self):
+    arr = np.log(np.array(self.total_visits)+1)
+    mat = np.reshape(arr, (self.height, self.width))[::-1, ::]
+    plt.matshow(mat, cmap=plt.cm.gray)
+    plt.savefig('plot.png')
+    plt.show()
 
 
 
@@ -68,8 +104,19 @@ class DGraph(nx.Graph):
 
 
 G = DGraph(WIDTH, HEIGHT)
+G.perturb_initial_weights()
 
-G.shortest_path_centre = 0
+
+G.shortest_path_centre = (WIDTH//3,0)
 # G.update_shortest_path()
+G.update_shortest_path()
 
-print(G.nodes(1))
+# initial stems
+G.release_agents(agent_list = [[2*WIDTH//3, 8*HEIGHT//9]], weight_factor = .90)
+G.release_agents(agent_list = [(i*WIDTH // 5 + WIDTH //10, (3 + i*(4-i))*HEIGHT//9) for i in range(5)], weight_factor = .90)
+
+# Random agents:
+for i in range(35):
+  G.release_agents(batch_count = 20)
+G.draw()
+
