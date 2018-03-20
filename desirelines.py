@@ -59,7 +59,7 @@ class DGraph(nx.Graph):
     # perturbation to avoid initial manhatten-norm
     for node_in, node_out in self.edges():
       if node_in < node_out: #Directed graph G[a][b] = G[b][a]
-        w = 1 + .05*(1-2*rng.random())
+        w = 1 + .1*(1-2*rng.random())
         G[node_in][node_out]['weight'] = w
         # G[node_out][node_in]['weight'] = w
 
@@ -70,31 +70,31 @@ class DGraph(nx.Graph):
     else:
       agent_starts = [self.grid2ind(rng.choice(range(self.width)), rng.choice(range(self.height)))
                       for _ in range(batch_count)] # Todo: Make slightly uniform
-    # List shortest paths
-    s_paths = [self.shortest_path_list[start] for start in agent_starts]
+
     # Add up visits per node
     visits = self.node_count * [0]
-    for path in s_paths:
-      for node in path:
-        visits[node] += 1
-        self.total_visits[node] += 1
+    for start_node in agent_starts:
+      for visited_node in self.shortest_path_list[start_node]:
+        visits[visited_node] += 1
+        self.total_visits[visited_node] += 1
 
     # Lower all weights according to current visits
     for node_out, node_in in self.edges():
       # Flatten
       G[node_out][node_in]['weight'] *= weight_factor**(visits[node_out] + visits[node_in])
       # Regrowth:
-      G[node_out][node_in]['weight'] += .001*rng.random()
+      G[node_out][node_in]['weight'] += .1*rng.random()
     # Update shortest_path
     self.update_shortest_path()
     return
 
-  def draw(self):
+  def draw(self, show = True, filename = 'plot.png'):
     arr = np.log(np.array(self.total_visits)+1)
     mat = np.reshape(arr, (self.height, self.width))[::-1, ::]
     plt.matshow(mat, cmap=plt.cm.gray)
-    plt.savefig('plot.png')
-    plt.show()
+    plt.savefig(filename)
+    if show: plt.show()
+    plt.close()
 
 
 
@@ -116,7 +116,8 @@ G.release_agents(agent_list = [[2*WIDTH//3, 8*HEIGHT//9]], weight_factor = .90)
 G.release_agents(agent_list = [(i*WIDTH // 5 + WIDTH //10, (3 + i*(4-i))*HEIGHT//9) for i in range(5)], weight_factor = .90)
 
 # Random agents:
-for i in range(35):
-  G.release_agents(batch_count = 20)
-G.draw()
+for i in range(70):
+  G.release_agents(batch_count = 10)
+  G.draw(show = False, filename = 'animate/_anim{:03d}.png'.format(i+1))
 
+G.draw(show = False, filename = 'plot.png')
